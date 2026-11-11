@@ -9,7 +9,7 @@ export default async function CustomerLayout({
   children: React.ReactNode;
 }) {
   const supabase = await createClient();
-const adminSupabase = createAdminClient();
+const adminSupabase = await createAdminClient();
   const { data: { user } } = await supabase.auth.getUser();
 
   if (!user) redirect("/login");
