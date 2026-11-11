@@ -18,8 +18,6 @@ const { data: profile } = await adminSupabase
   .select("*")
   .eq("id", user.id)
   .single();
-    .single();
-
   if (!profile) redirect("/login");
 
   return (
