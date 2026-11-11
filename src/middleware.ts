@@ -1,6 +1,15 @@
 import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
+function redirectWithCookies(supabaseResponse: NextResponse, redirectUrl: URL): NextResponse {
+  const redirectResponse = NextResponse.redirect(redirectUrl);
+  // Copy session cookies so auth state is preserved after redirect
+  supabaseResponse.cookies.getAll().forEach(cookie => {
+    redirectResponse.cookies.set(cookie.name, cookie.value, { path: '/' });
+  });
+  return redirectResponse;
+}
+
 export async function middleware(request: NextRequest) {
   let supabaseResponse = NextResponse.next({ request });
 
@@ -35,11 +44,10 @@ export async function middleware(request: NextRequest) {
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = '/login';
     redirectUrl.searchParams.set('redirectTo', pathname);
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCookies(supabaseResponse, redirectUrl);
   }
 
   if (user && (pathname === '/login' || pathname === '/register')) {
-    // Get role to redirect properly
     const { data: profile } = await supabase
       .from('profiles')
       .select('role')
@@ -49,7 +57,7 @@ export async function middleware(request: NextRequest) {
     const role = profile?.role ?? 'customer';
     const redirectUrl = request.nextUrl.clone();
     redirectUrl.pathname = `/${role}/dashboard`;
-    return NextResponse.redirect(redirectUrl);
+    return redirectWithCookies(supabaseResponse, redirectUrl);
   }
 
   // Role-based access control for dashboard routes
@@ -63,7 +71,7 @@ export async function middleware(request: NextRequest) {
     if (profile?.role !== 'admin') {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/customer/dashboard';
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCookies(supabaseResponse, redirectUrl);
     }
   }
 
@@ -77,7 +85,7 @@ export async function middleware(request: NextRequest) {
     if (profile?.role !== 'reseller' && profile?.role !== 'admin') {
       const redirectUrl = request.nextUrl.clone();
       redirectUrl.pathname = '/customer/dashboard';
-      return NextResponse.redirect(redirectUrl);
+      return redirectWithCookies(supabaseResponse, redirectUrl);
     }
   }
 
