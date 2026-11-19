@@ -33,15 +33,14 @@ export default async function AdminReportsPage() {
       .in("status", ["completed", "processing"])
       .gte("created_at", startOfMonth)
       .order("created_at"),
-    supabase.from("payment_records")
-      .select("payment_method, amount")
+    supabase.from("payments")
+      .select("method, amount")
       .eq("status", "verified"),
   ]);
 
   const sumCosts = (rows: { total_cost: number }[] | null) =>
     (rows ?? []).reduce((acc, r) => acc + (r.total_cost ?? 0), 0);
 
-  // Aggregate top services
   const serviceMap = new Map<string, { name: string; platform: string; revenue: number; count: number }>();
   for (const o of topServices ?? []) {
     const key = o.service_id;
@@ -60,10 +59,9 @@ export default async function AdminReportsPage() {
     .sort((a, b) => b.revenue - a.revenue)
     .slice(0, 10);
 
-  // Aggregate payment methods
   const methodMap = new Map<string, number>();
   for (const p of paymentMethods ?? []) {
-    methodMap.set(p.payment_method, (methodMap.get(p.payment_method) ?? 0) + (p.amount ?? 0));
+    methodMap.set(p.method, (methodMap.get(p.method) ?? 0) + (p.amount ?? 0));
   }
 
   return (
@@ -72,8 +70,6 @@ export default async function AdminReportsPage() {
         <h1 className="page-title">Revenue Reports</h1>
         <p className="page-subtitle">Financial overview and analytics</p>
       </div>
-
-      {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         {[
           { label: "Total Revenue", value: sumCosts(totalRevenue as any[]), color: "text-green-700" },
@@ -86,9 +82,7 @@ export default async function AdminReportsPage() {
           </div>
         ))}
       </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Services */}
         <div className="card">
           <h2 className="text-base font-semibold mb-4">Top Services by Revenue</h2>
           <div className="space-y-3">
@@ -104,8 +98,6 @@ export default async function AdminReportsPage() {
             ))}
           </div>
         </div>
-
-        {/* Payment Methods */}
         <div className="card">
           <h2 className="text-base font-semibold mb-4">Deposits by Payment Method</h2>
           <div className="space-y-3">
