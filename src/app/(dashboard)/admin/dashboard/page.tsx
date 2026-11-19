@@ -32,11 +32,11 @@ export default async function AdminDashboardPage() {
     supabase.from("profiles").select("*", { count: "exact", head: true }).eq("role", "reseller"),
     supabase.from("orders").select("*", { count: "exact", head: true }),
     supabase.from("orders").select("*", { count: "exact", head: true }).gte("created_at", today),
-    supabase.from("payment_records").select("*", { count: "exact", head: true }).eq("status", "pending"),
+    supabase.from("payments").select("*", { count: "exact", head: true }).eq("status", "pending"),
     supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
     supabase.from("orders").select("*, user:profiles(full_name, email), service:services(name), platform:platforms(name)")
       .order("created_at", { ascending: false }).limit(8),
-    supabase.from("payment_records").select("*, user:profiles(full_name, email)")
+    supabase.from("payments").select("*, user:profiles(full_name, email)")
       .eq("status", "pending").order("created_at", { ascending: false }).limit(5),
     supabase.from("orders").select("total_price").eq("status", "completed"),
   ]);
@@ -126,7 +126,7 @@ export default async function AdminDashboardPage() {
                   </div>
                   <div className="ml-3 text-right flex-shrink-0">
                     <p className="text-sm font-semibold text-green-600">{formatCurrency(p.amount)}</p>
-                    <p className="text-xs text-gray-500 capitalize">{p.payment_method.replace("_", " ")}</p>
+                    <p className="text-xs text-gray-500 capitalize">{p.method.replace("_", " ")}</p>
                   </div>
                 </div>
               ))}
