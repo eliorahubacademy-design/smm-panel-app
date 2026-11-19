@@ -18,7 +18,7 @@ export async function POST(
 
   // Get payment record
   const { data: payment } = await adminClient
-    .from("payment_records")
+    .from("payments")
     .select("*")
     .eq("id", id)
     .single();
@@ -32,7 +32,7 @@ export async function POST(
   const { data: creditResult, error: creditError } = await adminClient.rpc("credit_wallet", {
     p_user_id: payment.user_id,
     p_amount: payment.amount,
-    p_description: `Deposit via ${payment.payment_method} (ref: ${payment.reference_number})`,
+    p_description: `Deposit via ${payment.method} (ref: ${payment.reference_number})`,
     p_reference_id: payment.id,
     p_reference_type: "deposit",
   });
@@ -43,7 +43,7 @@ export async function POST(
 
   // Update payment record
   await adminClient
-    .from("payment_records")
+    .from("payments")
     .update({
       status: "verified",
       verified_by: user.id,
