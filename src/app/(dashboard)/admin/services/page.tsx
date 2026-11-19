@@ -1,7 +1,9 @@
-import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { formatCurrency } from "@/lib/utils/cn";
 import ServiceManager from "./ServiceManager";
+import ToggleService from "./ToggleService";
 
 export const metadata = { title: "Service Management" };
 
@@ -10,13 +12,15 @@ export default async function AdminServicesPage() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const adminSupabase = await createAdminClient();
+
   const [{ data: services }, { data: platforms }] = await Promise.all([
-    supabase
+    adminSupabase
       .from("services")
       .select("*, platform:platforms(name, slug)")
       .order("platform_id")
       .order("name"),
-    supabase.from("platforms").select("id, name, slug").order("name"),
+    adminSupabase.from("platforms").select("id, name, slug").order("name"),
   ]);
 
   return (
@@ -57,9 +61,9 @@ export default async function AdminServicesPage() {
                     <span className="badge bg-brand-100 text-brand-800">{s.platform?.name}</span>
                   </td>
                   <td className="table-td text-sm text-gray-600">{s.category}</td>
-                  <td className="table-td font-medium">{formatCurrency(s.price_per_unit)}</td>
+                  <td className="table-td font-medium">{formatCurrency(s.base_price)}</td>
                   <td className="table-td text-sm text-gray-600">
-                    {s.min_quantity.toLocaleString()} – {s.max_quantity.toLocaleString()} {s.unit_label}
+                    {s.min_quantity.toLocaleString()} – {s.max_quantity.toLocaleString()} {s.unit}
                   </td>
                   <td className="table-td">
                     <span className={`badge ${s.is_active ? "bg-green-100 text-green-800" : "bg-gray-100 text-gray-600"}`}>
@@ -76,31 +80,5 @@ export default async function AdminServicesPage() {
         </table>
       </div>
     </div>
-  );
-}
-
-function ToggleService({ serviceId, isActive }: { serviceId: string; isActive: boolean }) {
-  return (
-    <form action={`/api/admin/services?id=${serviceId}`} method="POST">
-      <input type="hidden" name="_method" value="PATCH" />
-      <button
-        type="submit"
-        formAction={`/api/admin/services?id=${serviceId}`}
-        className={`text-xs px-2 py-1 rounded font-medium ${
-          isActive ? "bg-red-50 text-red-700 hover:bg-red-100" : "bg-green-50 text-green-700 hover:bg-green-100"
-        }`}
-        onClick={async (e) => {
-          e.preventDefault();
-          const res = await fetch(`/api/admin/services?id=${serviceId}`, {
-            method: isActive ? "DELETE" : "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ is_active: !isActive }),
-          });
-          if (res.ok) window.location.reload();
-        }}
-      >
-        {isActive ? "Deactivate" : "Activate"}
-      </button>
-    </form>
   );
 }
