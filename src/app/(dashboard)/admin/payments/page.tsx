@@ -20,7 +20,7 @@ export default async function AdminPaymentsPage({
   const offset = (pageNum - 1) * pageSize;
 
   let query = supabase
-    .from("payment_records")
+    .from("payments")
     .select("*, user:profiles(full_name, email)", { count: "exact" })
     .order("created_at", { ascending: false })
     .range(offset, offset + pageSize - 1);
@@ -83,7 +83,7 @@ export default async function AdminPaymentsPage({
                     <p className="text-xs text-gray-500">{p.user?.email}</p>
                   </td>
                   <td className="table-td font-semibold text-green-700">{formatCurrency(p.amount)}</td>
-                  <td className="table-td capitalize">{p.payment_method?.replace("_", " ")}</td>
+                  <td className="table-td capitalize">{p.method?.replace("_", " ")}</td>
                   <td className="table-td">
                     <span className="font-mono text-xs bg-gray-100 px-2 py-1 rounded">{p.reference_number}</span>
                   </td>
