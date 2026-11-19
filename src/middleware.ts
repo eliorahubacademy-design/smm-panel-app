@@ -1,4 +1,5 @@
 import { createServerClient } from '@supabase/ssr';
+import { createClient as createSupabaseClient } from '@supabase/supabase-js';
 import { NextResponse, type NextRequest } from 'next/server';
 
 function redirectWithCookies(supabaseResponse: NextResponse, redirectUrl: URL): NextResponse {
@@ -33,13 +34,14 @@ export async function middleware(request: NextRequest) {
   );
 
   // Admin client bypasses RLS for reliable profile role lookups
-  const adminSupabase = createServerClient(
+  // Uses createSupabaseClient directly (not createServerClient) to avoid cookie-based auth issues in middleware
+  const adminSupabase = createSupabaseClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.SUPABASE_SERVICE_ROLE_KEY!,
     {
-      cookies: {
-        getAll() { return request.cookies.getAll(); },
-        setAll() {},
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false,
       },
     }
   );
