@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { formatCurrency, formatDate, getStatusColor } from "@/lib/utils/cn";
 import type { Wallet, WalletTransaction, PaymentRecord } from "@/types";
-import { Wallet as WalletIcon, Plus, ArrowUpRight, ArrowDownLeft, X } from "lucide-react";
+import { Wallet as WalletIcon, Plus, ArrowUpRight, ArrowDownLeft, X, Upload, ImageIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 
 interface WalletClientProps {
@@ -20,6 +20,7 @@ const paymentMethods = [
 
 export default function WalletClient({ wallet, transactions, payments }: WalletClientProps) {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [showAddFunds, setShowAddFunds] = useState(false);
   const [form, setForm] = useState({
     amount: "",
@@ -28,12 +29,39 @@ export default function WalletClient({ wallet, transactions, payments }: WalletC
     sender_name: "",
     sender_account: "",
   });
+  const [screenshotFile, setScreenshotFile] = useState<File | null>(null);
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const [activeTab, setActiveTab] = useState<"transactions" | "deposits">("transactions");
 
   const selectedMethod = paymentMethods.find(m => m.value === form.payment_method);
+
+  function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const allowedTypes = ["image/jpeg", "image/jpg", "image/png", "image/webp", "image/gif"];
+    if (!allowedTypes.includes(file.type)) {
+      setError("Invalid file type. Only images are allowed.");
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setError("File too large. Maximum size is 5MB.");
+      return;
+    }
+
+    setScreenshotFile(file);
+    setScreenshotPreview(URL.createObjectURL(file));
+    setError("");
+  }
+
+  function removeScreenshot() {
+    setScreenshotFile(null);
+    setScreenshotPreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  }
 
   async function handleSubmitDeposit(e: React.FormEvent) {
     e.preventDefault();
@@ -47,10 +75,31 @@ export default function WalletClient({ wallet, transactions, payments }: WalletC
 
     setSubmitting(true);
     try {
+      let screenshotPath: string | null = null;
+
+      // Upload screenshot first if provided
+      if (screenshotFile) {
+        const uploadForm = new FormData();
+        uploadForm.append("file", screenshotFile);
+        const uploadRes = await fetch("/api/wallet/upload-screenshot", {
+          method: "POST",
+          body: uploadForm,
+        });
+        const uploadData = await uploadRes.json();
+        if (!uploadRes.ok) {
+          setError(uploadData.error ?? "Failed to upload screenshot.");
+          return;
+        }
+        screenshotPath = uploadData.path;
+      }
+
       const res = await fetch("/api/wallet/deposit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          ...form,
+          screenshot_url: screenshotPath,
+        }),
       });
       const data = await res.json();
 
@@ -63,6 +112,8 @@ export default function WalletClient({ wallet, transactions, payments }: WalletC
       setTimeout(() => {
         setShowAddFunds(false);
         setSuccess(false);
+        setScreenshotFile(null);
+        setScreenshotPreview(null);
         setForm({ amount: "", payment_method: "gcash", reference_number: "", sender_name: "", sender_account: "" });
         router.refresh();
       }, 2000);
@@ -182,19 +233,35 @@ export default function WalletClient({ wallet, transactions, payments }: WalletC
                 <th className="table-th">Reference</th>
                 <th className="table-th">Amount</th>
                 <th className="table-th">Method</th>
+                <th className="table-th">Receipt</th>
                 <th className="table-th">Status</th>
                 <th className="table-th">Date</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
               {!payments.length ? (
-                <tr><td colSpan={5} className="table-td text-center text-gray-500 py-10">No deposit requests yet.</td></tr>
+                <tr><td colSpan={6} className="table-td text-center text-gray-500 py-10">No deposit requests yet.</td></tr>
               ) : (
                 payments.map(p => (
                   <tr key={p.id} className="table-tr">
                     <td className="table-td font-mono text-xs">{p.reference_number}</td>
                     <td className="table-td font-semibold text-green-600">{formatCurrency(p.amount)}</td>
-                    <td className="table-td capitalize">{p.payment_method.replace("_", " ")}</td>
+                    <td className="table-td capitalize">{(p.method ?? "").replace("_", " ")}</td>
+                    <td className="table-td">
+                      {p.screenshot_url ? (
+                        <a
+                          href={`/api/wallet/screenshot/${encodeURIComponent(p.screenshot_url)}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-brand-600 hover:text-brand-700 text-xs"
+                        >
+                          <ImageIcon className="h-3.5 w-3.5" />
+                          View
+                        </a>
+                      ) : (
+                        <span className="text-gray-400 text-xs">—</span>
+                      )}
+                    </td>
                     <td className="table-td"><span className={`badge ${getStatusColor(p.status)}`}>{p.status}</span></td>
                     <td className="table-td text-gray-500 text-xs">{formatDate(p.created_at)}</td>
                   </tr>
@@ -304,6 +371,40 @@ export default function WalletClient({ wallet, transactions, payments }: WalletC
                   onChange={e => setForm(prev => ({ ...prev, sender_account: e.target.value }))}
                   className="input"
                   placeholder="GCash/Maya number or bank account"
+                />
+              </div>
+
+              {/* Screenshot Upload */}
+              <div>
+                <label className="label">Payment Screenshot <span className="text-gray-400 text-xs">(recommended)</span></label>
+                {screenshotPreview ? (
+                  <div className="relative rounded-lg border border-gray-200 overflow-hidden">
+                    <img src={screenshotPreview} alt="Payment screenshot" className="w-full max-h-48 object-contain bg-gray-50" />
+                    <button
+                      type="button"
+                      onClick={removeScreenshot}
+                      className="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    className="w-full rounded-lg border-2 border-dashed border-gray-300 p-6 text-center hover:border-brand-400 hover:bg-brand-50 transition-colors"
+                  >
+                    <Upload className="h-6 w-6 mx-auto mb-2 text-gray-400" />
+                    <p className="text-sm text-gray-500">Click to upload screenshot</p>
+                    <p className="text-xs text-gray-400 mt-1">JPG, PNG, WebP — max 5MB</p>
+                  </button>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
                 />
               </div>
 
