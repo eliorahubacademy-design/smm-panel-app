@@ -32,6 +32,18 @@ export async function middleware(request: NextRequest) {
     }
   );
 
+  // Admin client bypasses RLS for reliable profile role lookups
+  const adminSupabase = createServerClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+      cookies: {
+        getAll() { return request.cookies.getAll(); },
+        setAll() {},
+      },
+    }
+  );
+
   const { data: { user } } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
@@ -48,7 +60,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && (pathname === '/login' || pathname === '/register')) {
-    const { data: profile } = await supabase
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -62,7 +74,7 @@ export async function middleware(request: NextRequest) {
 
   // Role-based access control for dashboard routes
   if (user && pathname.startsWith('/admin')) {
-    const { data: profile } = await supabase
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
@@ -76,7 +88,7 @@ export async function middleware(request: NextRequest) {
   }
 
   if (user && pathname.startsWith('/reseller')) {
-    const { data: profile } = await supabase
+    const { data: profile } = await adminSupabase
       .from('profiles')
       .select('role')
       .eq('id', user.id)
