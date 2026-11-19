@@ -54,4 +54,31 @@ export default async function CustomerServicesPage() {
                   </div>
 
                   {s.description && (
-                    <p className="text-xs text-gray-500 mb-3
+                    <p className="text-xs text-gray-500 mb-3 line-clamp-2">{s.description}</p>
+                  )}
+
+                  <div className="space-y-1 text-xs text-gray-600 mt-2">
+                    <div className="flex justify-between">
+                      <span>Price per 1k</span>
+                      <span className="font-medium text-gray-900">{formatCurrency(s.base_price * 1000)}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Min. qty</span>
+                      <span className="font-medium text-gray-900">{s.min_quantity.toLocaleString()}</span>
+                    </div>
+                    {s.average_speed && (
+                      <div className="flex justify-between">
+                        <span>Speed</span>
+                        <span className="font-medium text-gray-900">{s.average_speed}</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))
+      )}
+    </div>
+  );
+}
