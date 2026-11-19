@@ -3,12 +3,12 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 
 const DepositSchema = z.object({
-  amount: z.number().positive().min(50).max(50000),
+  amount: z.coerce.number().positive().min(50).max(50000),
   payment_method: z.enum(["gcash", "maya", "bank_transfer"]),
   reference_number: z.string().min(4).max(100),
-  sender_name: z.string().min(2).max(100),
-  proof_url: z.string().url().optional(),
-  notes: z.string().max(500).optional(),
+  sender_name: z.string().min(2).max(100).optional(),
+  sender_account: z.string().max(100).optional(),
+  screenshot_url: z.string().url().optional(),
 });
 
 export async function POST(request: Request) {
@@ -22,11 +22,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid request", details: parsed.error.flatten() }, { status: 400 });
   }
 
-  const { amount, payment_method, reference_number, sender_name, proof_url, notes } = parsed.data;
+  const { amount, payment_method, reference_number, screenshot_url } = parsed.data;
 
   // Check for duplicate reference number
   const { data: existing } = await supabase
-    .from("payment_records")
+    .from("payments")
     .select("id")
     .eq("reference_number", reference_number)
     .maybeSingle();
@@ -36,15 +36,13 @@ export async function POST(request: Request) {
   }
 
   const { data: record, error } = await supabase
-    .from("payment_records")
+    .from("payments")
     .insert({
       user_id: user.id,
       amount,
-      payment_method,
+      method: payment_method,
       reference_number,
-      sender_name,
-      proof_url: proof_url ?? null,
-      notes: notes ?? null,
+      screenshot_url: screenshot_url ?? null,
       status: "pending",
     })
     .select()
