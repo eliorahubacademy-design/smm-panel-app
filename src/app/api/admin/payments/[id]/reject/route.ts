@@ -23,7 +23,7 @@ export async function POST(
   const adminClient = createAdminClient();
 
   const { data: payment } = await adminClient
-    .from("payment_records")
+    .from("payments")
     .select("status")
     .eq("id", id)
     .single();
@@ -32,7 +32,7 @@ export async function POST(
   if (payment.status !== "pending") return NextResponse.json({ error: "Payment is not pending" }, { status: 409 });
 
   await adminClient
-    .from("payment_records")
+    .from("payments")
     .update({
       status: "rejected",
       rejection_reason: parsed.data.reason,
